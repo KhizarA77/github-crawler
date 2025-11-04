@@ -1,6 +1,6 @@
 import time
-from src.infrastructure.github_client import GitHubClient
-from src.infrastructure.postgres_repo import PostgresRepo
+from src.repositories.github_client import GitHubClient
+from src.repositories.postgres_repo import PostgresRepo
 
 REPO_QUERY = """
 query ($cursor: String) {

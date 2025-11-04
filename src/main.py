@@ -1,6 +1,6 @@
 from src.config import load_config
-from src.infrastructure.postgres_repo import PostgresRepo
-from src.infrastructure.github_client import GitHubClient
+from src.repositories.postgres_repo import PostgresRepo
+from src.repositories.github_client import GitHubClient
 from src.services.crawler_service import CrawlerService
 
 def main():

@@ -1,5 +1,5 @@
 # scripts/test_github_client.py
-from src.infrastructure.github_client import GitHubClient
+from src.repositories.github_client import GitHubClient
 
 def main():
     client = GitHubClient()
