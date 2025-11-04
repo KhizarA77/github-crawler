@@ -1,0 +1,99 @@
+name: GitHub Crawler
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:latest
+        env:
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: crawler
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U user -d crawler"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: crawler
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      GITHUB_TOKEN: ${{ github.token }}  # default GitHub token
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          python -m venv venv
+          source venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Wait for Postgres to be ready
+        run: |
+          echo "⏳ Waiting for Postgres..."
+          for i in {1..10}; do
+            if pg_isready -h localhost -p 5432 -U user -d crawler; then
+              echo "✅ Postgres is ready!"
+              break
+            fi
+            echo "Waiting..."
+            sleep 5
+          done
+
+      - name: Setup database schema
+        run: |
+          source venv/bin/activate
+          python scripts/setup_postgres.py
+
+      - name: Run crawler
+        run: |
+          source venv/bin/activate
+          python -m src.main
+
+      - name: Dump database to CSV
+        run: |
+          source venv/bin/activate
+          python - <<'EOF'
+          import psycopg2, csv, os
+          conn = psycopg2.connect(
+              host=os.getenv("POSTGRES_HOST"),
+              port=os.getenv("POSTGRES_PORT"),
+              dbname=os.getenv("POSTGRES_DB"),
+              user=os.getenv("POSTGRES_USER"),
+              password=os.getenv("POSTGRES_PASSWORD")
+          )
+          cur = conn.cursor()
+          cur.execute("SELECT * FROM repositories;")
+          rows = cur.fetchall()
+          with open("repositories.csv", "w", newline="", encoding="utf-8") as f:
+              writer = csv.writer(f)
+              writer.writerow([desc[0] for desc in cur.description])
+              writer.writerows(rows)
+          conn.close()
+          EOF
+
+      - name: Upload crawl results
+        uses: actions/upload-artifact@v4
+        with:
+          name: repositories-data
+          path: repositories.csv
