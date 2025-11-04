@@ -1,17 +1,18 @@
-name: GitHub Crawler
+name: GitHub Crawler CI
 
 on:
   push:
+    branches: [ main ]
   pull_request:
-  workflow_dispatch:
+    branches: [ main ]
 
 jobs:
-  crawl:
+  build:
     runs-on: ubuntu-latest
 
     services:
       postgres:
-        image: postgres:latest
+        image: postgres:15
         env:
           POSTGRES_USER: user
           POSTGRES_PASSWORD: password
@@ -30,7 +31,7 @@ jobs:
       POSTGRES_DB: crawler
       POSTGRES_HOST: localhost
       POSTGRES_PORT: 5432
-      GITHUB_TOKEN: ${{ github.token }}  # default GitHub token
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
       - name: Checkout repository
@@ -48,16 +49,12 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Wait for Postgres to be ready
+      - name: Wait for Postgres to start
         run: |
-          echo "⏳ Waiting for Postgres..."
           for i in {1..10}; do
-            if pg_isready -h localhost -p 5432 -U user -d crawler; then
-              echo "✅ Postgres is ready!"
-              break
-            fi
-            echo "Waiting..."
-            sleep 5
+            pg_isready -h localhost -p 5432 -U user && break
+            echo "Waiting for postgres..."
+            sleep 3
           done
 
       - name: Setup database schema
@@ -69,31 +66,3 @@ jobs:
         run: |
           source venv/bin/activate
           python -m src.main
-
-      - name: Dump database to CSV
-        run: |
-          source venv/bin/activate
-          python - <<'EOF'
-          import psycopg2, csv, os
-          conn = psycopg2.connect(
-              host=os.getenv("POSTGRES_HOST"),
-              port=os.getenv("POSTGRES_PORT"),
-              dbname=os.getenv("POSTGRES_DB"),
-              user=os.getenv("POSTGRES_USER"),
-              password=os.getenv("POSTGRES_PASSWORD")
-          )
-          cur = conn.cursor()
-          cur.execute("SELECT * FROM repositories;")
-          rows = cur.fetchall()
-          with open("repositories.csv", "w", newline="", encoding="utf-8") as f:
-              writer = csv.writer(f)
-              writer.writerow([desc[0] for desc in cur.description])
-              writer.writerows(rows)
-          conn.close()
-          EOF
-
-      - name: Upload crawl results
-        uses: actions/upload-artifact@v4
-        with:
-          name: repositories-data
-          path: repositories.csv
