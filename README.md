@@ -25,15 +25,15 @@ It is designed for efficient, continuous crawling and adheres to clean software 
 github-crawler/
 │
 ├── src/
-│   ├── main.py              # Crawler logic using GitHub GraphQL API
-│   ├── config.py            # Loads configuration and credentials
+│   ├── main.py             
+│   ├── config.py            
 │   ├── services/
 |     ├── crawler_service.py
 |   ├── repositories/
 |     ├── github_client.py
 |     ├── postgres_repo.py
 ├── scripts/
-│   ├── setup_postgres.py    # Creates the PostgreSQL schema
+│   ├── setup_postgres.py    
 │   ├── crawl_stars.py
 |   ├── test_connection.py
 |   ├── test_github_client.py
@@ -71,36 +71,6 @@ This repository includes a complete CI pipeline that:
 2. Installs dependencies and sets up a virtual environment
 3. Creates the database schema (`setup_postgres.py`)
 4. Runs the GitHub Crawler (`src/main.py`)
-5. Exports crawled data to `repositories.csv`
-6. Uploads the CSV as an **artifact** for easy download
-
----
-
-### Example Workflow Snippet
-
-```yaml
-- name: Export crawled data
-  run: |
-    source venv/bin/activate
-    python -c "
-import psycopg2, csv;
-conn=psycopg2.connect(host='localhost', port=5432, dbname='crawler', user='user', password='password');
-cur=conn.cursor();
-cur.execute('SELECT * FROM repositories');
-rows=cur.fetchall();
-with open('repositories.csv','w',newline='') as f:
-    writer=csv.writer(f);
-    writer.writerow(['repo_id','name','owner','stars','last_updated']);
-    writer.writerows(rows);
-conn.close();
-"
-
-- name: Upload artifact
-  uses: actions/upload-artifact@v4
-  with:
-    name: crawled-data
-    path: repositories.csv
-```
 
 ---
 
@@ -166,7 +136,6 @@ Run via GitHub Actions:
 | Dependency setup | ✅ |
 | Schema setup step | ✅ |
 | Crawl 100k repos | ✅ |
-| Dump + artifact upload | ✅ |
 | Uses default `GITHUB_TOKEN` | ✅ |
 | Schema flexibility | ✅ |
 | Clean architecture | ✅ |
